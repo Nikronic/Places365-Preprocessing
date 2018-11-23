@@ -13,6 +13,7 @@ class Dataset(data.Dataset):
             list_IDs: a list of IDs for each data point in data set
             labels: label of an item in data set with respect to the ID
         """
+        # super(Dataset,self).__init__()
 
         self.labels = labels
         self.list_IDs = list_IDs
@@ -40,4 +41,42 @@ class Dataset(data.Dataset):
         y = None #
 
         return X, y
+
+
+# Enable CUDA
+has_cuda = torch.cuda.is_available()
+device = torch.device("cuda:0" if has_cuda else "cpu")
+# cudnn.benchmark = True
+
+
+# Datasets
+partition = None # IDs
+labels = None # labels
+
+# Parameters
+params = {
+    'batch_size':64,
+    'shuffle': True,
+    'num_workers':4
+}
+max_epochs = 100
+
+# Generators
+training_set = Dataset(partition['train'], labels)
+training_generator = data.DataLoader(training_set, **params)
+
+# Do same for validation
+
+
+# Loop over epochs to train
+for epoch in range(max_epochs):
+    for local_batch, local_label in training_generator:
+        local_batch, local_label = local_batch.to(device), local_label.to(device)
+        # Model
+
+# Validate model
+with torch.set_grad_enabled(False):
+    pass
+
+
 
