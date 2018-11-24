@@ -86,12 +86,67 @@ with torch.set_grad_enabled(False):
 import zipfile
 import zlib
 import os
-def generate_partition(zip_dir):
-    src = open(zip_dir,'rb')
-    zf = zipfile.ZipFile(src)
-    for m in zf.infolist():
-        print(m.filename, m.header_offset)
 
+import errno
+import os
+import shutil
+import zipfile
+
+
+
+#%%
+
+def generate_partition(zip_dir):
+    """
+    src = open(zip_dir, 'rb')
+    zf = zipfile.ZipFile(src)
+    for idx,m in enumerate(zf.infolist()):
+        if idx != 0:
+            src.read(30)
+            decomp = zlib.decompressobj(-15)
+            out = open('data/'+m.filename, "wb")
+            result = decomp.decompress(src.read(m.compress_size))
+            out.write(result)
+            result = decomp.flush()
+            out.write(result)
+            print(out)
+            out.close()
+        else:
+            pass
+
+    zf.close()
+    src.close()
+    """
+
+    TARGETDIR = 'small_extract/'
+    with open(zip_dir, "rb") as zipsrc:
+        zfile = zipfile.ZipFile(zipsrc)
+        for member in zfile.infolist():
+            target_path = os.path.join(TARGETDIR, member.filename)
+            if target_path.endswith('/'):  # folder entry, create
+                try:
+                    os.makedirs(target_path)
+                except:
+                    raise
+
+            with open(target_path, 'wb') as outfile, zfile.open(member) as infile:
+                shutil.copyfileobj(infile, outfile)
+                print(infile)
+                print(outfile)
 
 
 generate_partition('data/small.zip')
+
+
+import ctypes, sys
+
+windows = [{
+    'script': "preprocess.py",
+    'uac_info': "requireAdministrator",
+},]
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
