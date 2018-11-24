@@ -91,9 +91,6 @@ def generate_partition(zip_dir):
     zf = zipfile.ZipFile(src)
     for m in zf.infolist():
         print(m.filename, m.header_offset)
-        src.read(30)
-        nm = src.read(len(m.filename))
-        decomp = zlib.decompressobj(-15)
 
 
 
