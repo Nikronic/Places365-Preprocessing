@@ -13,7 +13,6 @@ class Dataset(data.Dataset):
             list_IDs: a list of IDs for each data point in data set
             labels: label of an item in data set with respect to the ID
         """
-        # super(Dataset,self).__init__()
 
         self.labels = labels
         self.list_IDs = list_IDs
@@ -28,7 +27,8 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, item):
         """
-        Generate one item of data set. Here we apply our preprocessing things like halftone styles and subtractive color process using CMYK color model etc. (See the paper for operations)
+        Generate one item of data set. Here we apply our preprocessing things like halftone styles and
+        subtractive color process using CMYK color model etc. (See the paper for operations)
 
         :param item: index of item in IDs list
 
@@ -80,3 +80,21 @@ with torch.set_grad_enabled(False):
 
 
 
+
+
+
+import zipfile
+import zlib
+import os
+def generate_partition(zip_dir):
+    src = open(zip_dir,'rb')
+    zf = zipfile.ZipFile(src)
+    for m in zf.infolist():
+        print(m.filename, m.header_offset)
+        src.read(30)
+        nm = src.read(len(m.filename))
+        decomp = zlib.decompressobj(-15)
+
+
+
+generate_partition('data/small.zip')
