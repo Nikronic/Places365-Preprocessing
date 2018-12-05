@@ -140,10 +140,6 @@ generate_partition('data/small.zip')
 
 import ctypes, sys
 
-windows = [{
-    'script': "preprocess.py",
-    'uac_info': "requireAdministrator",
-},]
 
 def is_admin():
     try:
