@@ -2,16 +2,18 @@ import torch
 from torch.utils import data
 
 from PIL import Image
+from skimage import feature, color
+import numpy as np
 
-import zipfile
-import zlib
+import tarfile
 import os
-
-import errno
-import os
-import shutil
-import zipfile
+import io
 import pandas as pd
+
+from Halftoning.halftone import generate_halftone
+
+import matplotlib.pyplot as plt # TODO remove after tests completed!
+
 
 
 class Dataset(data.Dataset):
@@ -27,7 +29,7 @@ class Dataset(data.Dataset):
             :param txt_path: a text file containing names of all of images line by line
             :param transform: apply some transforms like cropping, rotating, etc on input image
 
-            :return a 3-member tuple containing input image (y_descreen) as ground truth, input image X as halftone image
+            :return a 3-value tuple containing input image (y_descreen) as ground truth, input image X as halftone image
                     and edge-map (y_edge) of ground truth image to feed into the network.
         """
 
@@ -55,33 +57,64 @@ class Dataset(data.Dataset):
         :return: a sample of data
         """
 
-        y_descreen = Image.open(os.path.join(self.img_dir), self.img_names[index])
+        y_descreen = get_image_by_name(self.img_dir, self.img_names[index])
+
+        # generate halftone image
+        X = halftone.generate_halftone(y_descreen)
+
+        # generate edge-map
+        y_edge = canny_edge_detector(y_descreen)
+
         if self.transform is not None:
-            y_descreen = self.transform(y_descreen)
+            X = self.transform(X)
 
-        # TODO add halftone process here
-        X = None
+        return X, y_descreen, y_edge
 
-        # TODO add canny edge detector process here
-        y_edge = None
+    @staticmethod
+    def canny_edge_detector(image):
+        image = np.array(image)
+        image = color.rgb2grey(image)
+        edges = feature.canny(image, sigma=3)  # TODO: the sigma hyper parameter value is not defined in the paper.
+        return edges*1
 
-        return X, y
-
-
-import os
-import tarfile
+    def get_image_by_name(self, name):
+        image = None
+        with tarfile.open(self.img_dir) as tf:
+            for tarinfo in tf:
+                if os.path.splitext(tarinfo.name)[0] == name:
+                    image = tf.extractfile(tarinfo)
+                    image = image.read()
+                    image = Image.open(io.BytesIO(image))
+        return image
 
 # %%
 # create sample tar file to test other modules over it.
-import tarfile
+
 with tarfile.open('data.tar', 'w') as tar:
     tar.add('data/')
-tar.close()
 
 
-with tarfile.open('data.tar') as tf:
-    for tarinfo in tf:
-        if os.path.splitext(tarinfo.name)[0] == 'data/Places365_val_00000003':
-            image = tf.extractfile(tarinfo)
-            image = image.read()
-            image = Image.open(io.BytesIO(image))
+
+def canny_edge_detector(image):
+    image = np.array(image)
+    image = color.rgb2grey(image)
+    edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
+    return edges
+
+def geti(path, name):
+    with tarfile.open(path) as tf:
+        for tarinfo in tf:
+            if os.path.splitext(tarinfo.name)[0] == name:
+                image = tf.extractfile(tarinfo)
+                image = image.read()
+                image = Image.open(io.BytesIO(image))
+    return image
+
+i = geti('data.tar', 'data/Places365_val_00000001')
+ie = canny_edge_detector(i)
+
+ih = generate_halftone(i)
+
+plt.imshow(ih)
+plt.show()
+
