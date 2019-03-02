@@ -1,22 +1,24 @@
+from __future__ import print_function, division
 import torch
-from torch.utils import data
-
 from PIL import Image
 from skimage import feature, color
 import numpy as np
+import random
 
 import tarfile
 import os
 import io
 import pandas as pd
 
+from skimage import io, transform
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, utils
+
 from Halftoning.halftone import generate_halftone
 
-import matplotlib.pyplot as plt # TODO remove after tests completed!
 
 
-
-class Dataset(data.Dataset):
+class HalftoneDataset(Dataset):
     """
     Return Dataset class representing our data set
     """
@@ -24,13 +26,12 @@ class Dataset(data.Dataset):
         """
         Initialize data set as a list of IDs corresponding to each item of data set and labels of each data
 
-        Args:
-            :param img_dir: path to the main tar file of all of images
-            :param txt_path: a text file containing names of all of images line by line
-            :param transform: apply some transforms like cropping, rotating, etc on input image
+        :param img_dir: path to the main tar file of all of images
+        :param txt_path: a text file containing names of all of images line by line
+        :param transform: apply some transforms like cropping, rotating, etc on input image
 
-            :return a 3-value tuple containing input image (y_descreen) as ground truth, input image X as halftone image
-                    and edge-map (y_edge) of ground truth image to feed into the network.
+        :return a 3-value dict containing input image (y_descreen) as ground truth, input image X as halftone image
+                and edge-map (y_edge) of ground truth image to feed into the network.
         """
 
         df = pd.read_csv(txt_path, sep=' ', index_col=0)
@@ -38,6 +39,36 @@ class Dataset(data.Dataset):
         self.txt_path = txt_path
         self.img_dir = img_dir
         self.transform = transform
+
+    @staticmethod
+    def canny_edge_detector(image):
+        """
+        Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
+
+        :param image: PIL image
+        :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
+        """
+        image = np.array(image)
+        image = color.rgb2grey(image)
+        edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
+        return edges * 1
+
+
+    def get_image_by_name(self, name):
+        """
+        gets a image by a name gathered from file list csv file
+
+        :param name: name of targeted image
+        :return: a PIL image
+        """
+        image = None
+        with tarfile.open(self.img_dir) as tf:
+            for tarinfo in tf:
+                if tarinfo.name == name:
+                    image = tf.extractfile(tarinfo)
+                    image = image.read()
+                    image = Image.open(io.BytesIO(image))
+        return image
 
     def __len__(self):
         """
@@ -54,67 +85,68 @@ class Dataset(data.Dataset):
 
         :param index: index of item in IDs list
 
-        :return: a sample of data
+        :return: a sample of data as a dict
         """
 
-        y_descreen = get_image_by_name(self.img_dir, self.img_names[index])
+        y_descreen = self.get_image_by_name(self.img_names[index])
 
         # generate halftone image
-        X = halftone.generate_halftone(y_descreen)
+        X = generate_halftone(y_descreen)
 
         # generate edge-map
-        y_edge = canny_edge_detector(y_descreen)
+        y_edge = self.canny_edge_detector(y_descreen)
 
         if self.transform is not None:
             X = self.transform(X)
 
-        return X, y_descreen, y_edge
+        sample = {'X':X,
+                  'y_descreen':y_descreen,
+                  'y_edge':y_edge}
 
-    @staticmethod
-    def canny_edge_detector(image):
-        image = np.array(image)
-        image = color.rgb2grey(image)
-        edges = feature.canny(image, sigma=3)  # TODO: the sigma hyper parameter value is not defined in the paper.
-        return edges*1
+        return sample
 
-    def get_image_by_name(self, name):
-        image = None
-        with tarfile.open(self.img_dir) as tf:
-            for tarinfo in tf:
-                if os.path.splitext(tarinfo.name)[0] == name:
-                    image = tf.extractfile(tarinfo)
-                    image = image.read()
-                    image = Image.open(io.BytesIO(image))
-        return image
+class Rescale(object):
+    """Rescale the image in a sample to a given size.
 
-# %%
-# create sample tar file to test other modules over it.
+    Args:
+        output_size (tuple or int): Desired output size. If tuple, output is
+            matched to output_size. If int, smaller of image edges is matched
+            to output_size keeping aspect ratio the same.
+    """
 
-with tarfile.open('data.tar', 'w') as tar:
-    tar.add('data/')
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        self.output_size = output_size
+
+    def __call__(self, sample):
+        image, y_descreen, y_edge = sample['X'], sample['y_descreen'], sample['y_edge']
+
+        h, w = image.shape[:2]
+        if isinstance(self.output_size, int):
+            if h > w:
+                new_h, new_w = self.output_size * h / w, self.output_size
+            else:
+                new_h, new_w = self.output_size, self.output_size * w / h
+        else:
+            new_h, new_w = self.output_size
+
+        new_h, new_w = int(new_h), int(new_w)
+
+        img = transform.resize(image, (new_h, new_w))
+        y_ds = transform.resize(y_descreen, (new_h, new_w))
+        y_e = transform.resize(y_edge, (new_h, new_w))
+
+        return {'image': img, 'y_descreen':y_ds, 'y_edge':y_e}
 
 
+# https://discuss.pytorch.org/t/adding-gaussion-noise-in-cifar10-dataset/961/2
+class RandomNoise(object):
+    def __init__(self, p, mean=0, std=1):
+        self.p = p
+        self.mean = mean
+        self.std = std
 
-def canny_edge_detector(image):
-    image = np.array(image)
-    image = color.rgb2grey(image)
-    edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
-    return edges
-
-def geti(path, name):
-    with tarfile.open(path) as tf:
-        for tarinfo in tf:
-            if os.path.splitext(tarinfo.name)[0] == name:
-                image = tf.extractfile(tarinfo)
-                image = image.read()
-                image = Image.open(io.BytesIO(image))
-    return image
-
-i = geti('data.tar', 'data/Places365_val_00000001')
-ie = canny_edge_detector(i)
-
-ih = generate_halftone(i)
-
-plt.imshow(ih)
-plt.show()
-
+    def __call__(self, img):
+        if random.random() <= self.p:
+            return img.clone().normal_(self.mean, self.std)
+        return img
