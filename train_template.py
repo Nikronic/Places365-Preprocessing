@@ -1,5 +1,7 @@
 from torchvision.transforms import *
+from torchvision import transforms, utils
 import torch
+from torch.utils.data import Dataset, DataLoader
 
 from preprocess import *
 
@@ -16,10 +18,24 @@ custom_transforms = transforms.Compose([ToPILImage(),
 
 # https://discuss.pytorch.org/t/what-does-pil-images-of-range-0-1-mean-and-how-do-we-save-images-as-that-format/2103
 
-train_dataset = HalftoneDataset('data/filelist.txt'
-                                , 'data.tar',
-                                custom_transforms)
-train_loader = DataLoader(dataset=train_dataset,
+"""train_dataset = HalftoneDataset(txt_path='data/filelist.txt',
+                                img_dir='data.tar',
+                                transform=None)
+"""
+
+train_dataset_ = HalftoneDataset()
+
+train_loader = DataLoader(dataset=train_dataset_,
                           batch_size=128,
                           shuffle=True,
-                          num_workers=8)
+                          num_workers=2)  # TODO change to desired one on colab
+"""
+for i in range(len(train_dataset)):
+    sample = train_dataset[i]
+
+    print(i, sample['image'].size(), sample['landmarks'].size())
+
+    if i == 3:
+        break
+
+"""

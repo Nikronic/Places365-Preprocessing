@@ -12,17 +12,17 @@ import pandas as pd
 
 from skimage import io, transform
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 
 from Halftoning.halftone import generate_halftone
 
 
-
-class HalftoneDataset(Dataset):
+class HalftoneDataset(torch.utils.data.Dataset):
     """
     Return Dataset class representing our data set
     """
-    def __int__(self, txt_path, img_dir, transform):
+
+    def __int__(self, txt_path='data/filelist.txt', img_dir='data.tar', transform=None):
+        # TODO init function is not running, so I cannot pass any args or even initialize attributes such as "img_dir"
         """
         Initialize data set as a list of IDs corresponding to each item of data set and labels of each data
 
@@ -33,7 +33,6 @@ class HalftoneDataset(Dataset):
         :return a 3-value dict containing input image (y_descreen) as ground truth, input image X as halftone image
                 and edge-map (y_edge) of ground truth image to feed into the network.
         """
-
         df = pd.read_csv(txt_path, sep=' ', index_col=0)
         self.img_names = df.index.values
         self.txt_path = txt_path
@@ -104,6 +103,7 @@ class HalftoneDataset(Dataset):
                   'y_edge':y_edge}
 
         return sample
+
 
 class Rescale(object):
     """Rescale the image in a sample to a given size.
