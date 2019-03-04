@@ -1,57 +1,37 @@
 from __future__ import print_function, division
-import torch
 from PIL import Image
 from skimage import feature, color
 import numpy as np
 import random
 
 import tarfile
-import os
 import io
 import pandas as pd
 
 from skimage import io, transform
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 from Halftoning.halftone import generate_halftone
 
 
-class HalftoneDataset(torch.utils.data.Dataset):
-    """
-    Return Dataset class representing our data set
-    """
-
-    def __int__(self, txt_path='data/filelist.txt', img_dir='data.tar', transform=None):
-        # TODO init function is not running, so I cannot pass any args or even initialize attributes such as "img_dir"
+class PlacesDataset(Dataset):
+    def __init__(self, txt_path='data/filelist.txt', img_dir='data.tar', transform=None):
         """
-        Initialize data set as a list of IDs corresponding to each item of data set and labels of each data
+                Initialize data set as a list of IDs corresponding to each item of data set
 
-        :param img_dir: path to the main tar file of all of images
-        :param txt_path: a text file containing names of all of images line by line
-        :param transform: apply some transforms like cropping, rotating, etc on input image
+                :param img_dir: path to the main tar file of all of images
+                :param txt_path: a text file containing names of all of images line by line
+                :param transform: apply some transforms like cropping, rotating, etc on input image
 
-        :return a 3-value dict containing input image (y_descreen) as ground truth, input image X as halftone image
-                and edge-map (y_edge) of ground truth image to feed into the network.
-        """
+                :return a 3-value dict containing input image (y_descreen) as ground truth, input image X as halftone image
+                        and edge-map (y_edge) of ground truth image to feed into the network.
+                """
+
         df = pd.read_csv(txt_path, sep=' ', index_col=0)
         self.img_names = df.index.values
         self.txt_path = txt_path
         self.img_dir = img_dir
         self.transform = transform
-
-    @staticmethod
-    def canny_edge_detector(image):
-        """
-        Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
-
-        :param image: PIL image
-        :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
-        """
-        image = np.array(image)
-        image = color.rgb2grey(image)
-        edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
-        return edges * 1
-
 
     def get_image_by_name(self, name):
         """
@@ -98,11 +78,24 @@ class HalftoneDataset(torch.utils.data.Dataset):
         if self.transform is not None:
             X = self.transform(X)
 
-        sample = {'X':X,
-                  'y_descreen':y_descreen,
-                  'y_edge':y_edge}
+        sample = {'X': X,
+                  'y_descreen': y_descreen,
+                  'y_edge': y_edge}
 
         return sample
+
+    @staticmethod
+    def canny_edge_detector(image):
+        """
+        Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
+
+        :param image: PIL image
+        :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
+        """
+        image = np.array(image)
+        image = color.rgb2grey(image)
+        edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
+        return edges * 1
 
 
 class Rescale(object):
