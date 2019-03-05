@@ -8,7 +8,8 @@ import tarfile
 import io
 import pandas as pd
 
-from skimage import io, transform
+from torchvision.transforms import ToTensor
+import torch
 from torch.utils.data import Dataset
 
 from Halftoning.halftone import generate_halftone
@@ -41,13 +42,14 @@ class PlacesDataset(Dataset):
         :return: a PIL image
         """
         image = None
-        with tarfile.open(self.img_dir) as tf:
+        with tarfile.open(self.img_dir) as tf:  # TODO remove for loop and make index calling (huge dataset)
             for tarinfo in tf:
                 if tarinfo.name == name:
                     image = tf.extractfile(tarinfo)
                     image = image.read()
                     image = Image.open(io.BytesIO(image))
-        return image
+                    return image
+
 
     def __len__(self):
         """
@@ -75,8 +77,12 @@ class PlacesDataset(Dataset):
         # generate edge-map
         y_edge = self.canny_edge_detector(y_descreen)
 
+
         if self.transform is not None:
             X = self.transform(X)
+            y_descreen = self.transform(y_descreen)
+            y_edge = self.transform(y_edge)
+
 
         sample = {'X': X,
                   'y_descreen': y_descreen,
@@ -95,41 +101,9 @@ class PlacesDataset(Dataset):
         image = np.array(image)
         image = color.rgb2grey(image)
         edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
-        return edges * 1
-
-
-class Rescale(object):
-    """Rescale the image in a sample to a given size.
-
-    Args:
-        output_size (tuple or int): Desired output size. If tuple, output is
-            matched to output_size. If int, smaller of image edges is matched
-            to output_size keeping aspect ratio the same.
-    """
-
-    def __init__(self, output_size):
-        assert isinstance(output_size, (int, tuple))
-        self.output_size = output_size
-
-    def __call__(self, sample):
-        image, y_descreen, y_edge = sample['X'], sample['y_descreen'], sample['y_edge']
-
-        h, w = image.shape[:2]
-        if isinstance(self.output_size, int):
-            if h > w:
-                new_h, new_w = self.output_size * h / w, self.output_size
-            else:
-                new_h, new_w = self.output_size, self.output_size * w / h
-        else:
-            new_h, new_w = self.output_size
-
-        new_h, new_w = int(new_h), int(new_w)
-
-        img = transform.resize(image, (new_h, new_w))
-        y_ds = transform.resize(y_descreen, (new_h, new_w))
-        y_e = transform.resize(y_edge, (new_h, new_w))
-
-        return {'image': img, 'y_descreen':y_ds, 'y_edge':y_e}
+        edges = edges.astype(float)  # torch tensors need float
+        edges = Image.fromarray(edges)
+        return edges
 
 
 # https://discuss.pytorch.org/t/adding-gaussion-noise-in-cifar10-dataset/961/2
@@ -143,3 +117,37 @@ class RandomNoise(object):
         if random.random() <= self.p:
             return img.clone().normal_(self.mean, self.std)
         return img
+
+
+def canny_edge_detector(image):
+    """
+    Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
+
+    :param image: PIL image
+    :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
+    """
+    image = np.array(image)
+    image = color.rgb2grey(image)
+    edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
+    return edges * 1
+
+
+def get_image_by_name(img_dir, name):
+    """
+    gets a image by a name gathered from file list csv file
+
+    :param name: name of targeted image
+    :return: a PIL image
+    """
+    image = None
+    with tarfile.open(img_dir) as tf:  # TODO remove for loop and make index calling (huge dataset)
+        for tarinfo in tf:
+            if tarinfo.name == name:
+                image = tf.extractfile(tarinfo)
+                image = image.read()
+                image = Image.open(io.BytesIO(image))
+                return image
+
+# z = get_image_by_name('data.tar', 'Places365_val_00000002.jpg')
+# ze = canny_edge_detector(z)
+# ze = Image.fromarray(ze)

@@ -6,12 +6,12 @@ from torch.utils.data import DataLoader
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-custom_transforms = transforms.Compose([ToPILImage(),
+custom_transforms = transforms.Compose([
                                         RandomResizedCrop(size=224, scale=(0.8, 1.2)),
                                         RandomRotation(degrees=(-30, 30)),
                                         RandomHorizontalFlip(p=0.5),
-                                        RandomNoise(p=0.5, mean=0, std=0.1),
-                                        ToTensor()])
+    ToTensor(),
+    RandomNoise(p=0.5, mean=0, std=0.1)])
 
 # TODO out input images based on custom Dataset class, are PIL images, so they are [0,1]. Now we have to transform them into [-1,1]. when we should do it??? The idea is PIL images are normalized already and ToTensor also normalizing them to [0, 1], So i remove normalizing layer!
 
@@ -19,12 +19,29 @@ custom_transforms = transforms.Compose([ToPILImage(),
 
 train_dataset = PlacesDataset(txt_path='data/filelist.txt',
                               img_dir='data.tar',
-                              transform=None)
+                              transform=custom_transforms)
 
 train_loader = DataLoader(dataset=train_dataset,
                           batch_size=128,
                           shuffle=True,
                           num_workers=2)  # TODO change to desired one on colab
+
+for i in range(len(train_dataset)):
+    sample = train_dataset[i]
+
+    X = sample['X']
+    y_d = sample['y_descreen']
+    y_e = sample['y_edge']
+    print(i)
+
+    print(type(X), X.size())
+    print(type(y_d), y_d.size())
+    print(type(y_e), y_e.size())
+
+    if i == 2:
+        break
+
+# z = get_image_by_name('data.tar', 'Places365_val_00000002.jpg')
 
 # class Dataset:
 #     def __int__(self, txt_path='data/filelist.txt', img_dir='data.tar', transform=None):
