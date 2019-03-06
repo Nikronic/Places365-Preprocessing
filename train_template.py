@@ -4,6 +4,10 @@ from preprocess import *
 import torch
 from torch.utils.data import DataLoader
 
+import torch.optim as optim
+import torch.nn as nn
+
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 custom_transforms = transforms.Compose([
@@ -21,111 +25,111 @@ train_dataset = PlacesDataset(txt_path='data/filelist.txt',
                               img_dir='data.tar',
                               transform=custom_transforms)
 
+# test_dataset = PlacesDataset(txt_path='data_test/filelist.txt', img_dir='data_test.tar', transform=ToTensor())
+# test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=False, num_workers=1)
+
 train_loader = DataLoader(dataset=train_dataset,
                           batch_size=128,
                           shuffle=True,
                           num_workers=2)  # TODO change to desired one on colab
 
-for i in range(len(train_dataset)):
-    sample = train_dataset[i]
+criterion = nn.MSELoss(reduction='mean')  # TODO define custom loss
+optimizer = optim.Adam(params, lr=0.0001)
 
-    X = sample['X']
-    y_d = sample['y_descreen']
-    y_e = sample['y_edge']
-    print(i)
 
-    print(type(X), X.size())
-    print(type(y_d), y_d.size())
-    print(type(y_e), y_e.size())
+def init_weights(m):
+    torch.nn.init.kaiming_normal_(m.weight)  # TODO there is a "uniform" version too. Check out which is correct
+    m.bias.data.fill_(0.0)
 
-    if i == 2:
-        break
 
-# z = get_image_by_name('data.tar', 'Places365_val_00000002.jpg')
+def train_model(net, data_loader, epochs=2):
+    """
+    Train model
+    :param net: Parameters of defined neural network
+    :param data_loader: A data loader object defined on train data set
+    :param epochs: Number of epochs to train model
+    :return: None
+    """
 
-# class Dataset:
-#     def __int__(self, txt_path='data/filelist.txt', img_dir='data.tar', transform=None):
-#
-#         """
-#         Initialize data set as a list of IDs corresponding to each item of data set
-#
-#         :param img_dir: path to the main tar file of all of images
-#         :param txt_path: a text file containing names of all of images line by line
-#         :param transform: apply some transforms like cropping, rotating, etc on input image
-#
-#         :return a 3-value dict containing input image (y_descreen) as ground truth, input image X as halftone image
-#                 and edge-map (y_edge) of ground truth image to feed into the network.
-#         """
-#
-#         df = pd.read_csv(txt_path, sep=' ', index_col=0)
-#         self.img_names = df.index.values
-#         self.txt_path = txt_path
-#         self.img_dir = img_dir
-#         self.transform = transform
-#
-#     @staticmethod
-#     def canny_edge_detector(image):
-#         """
-#         Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
-#
-#         :param image: PIL image
-#         :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
-#         """
-#         image = np.array(image)
-#         image = color.rgb2grey(image)
-#         edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
-#         return edges * 1
-#
-#
-#     def get_image_by_name(self, name):
-#         """
-#         gets a image by a name gathered from file list csv file
-#
-#         :param name: name of targeted image
-#         :return: a PIL image
-#         """
-#         image = None
-#         with tarfile.open(self.img_dir) as tf:
-#             for tarinfo in tf:
-#                 if tarinfo.name == name:
-#                     image = tf.extractfile(tarinfo)
-#                     image = image.read()
-#                     image = Image.open(io.BytesIO(image))
-#         return image
-#
-#     def __len__(self):
-#         """
-#         Return the length of data set using list of IDs
-#
-#         :return: number of samples in data set
-#         """
-#         return len(self.img_names)
-#
-#     def __getitem__(self, index):
-#         """
-#         Generate one item of data set. Here we apply our preprocessing things like halftone styles and
-#         subtractive color process using CMYK color model, generating edge-maps, etc.
-#
-#         :param index: index of item in IDs list
-#
-#         :return: a sample of data as a dict
-#         """
-#
-#         y_descreen = self.get_image_by_name(self.img_names[index])
-#
-#         # generate halftone image
-#         X = generate_halftone(y_descreen)
-#
-#         # generate edge-map
-#         y_edge = self.canny_edge_detector(y_descreen)
-#
-#         if self.transform is not None:
-#             X = self.transform(X)
-#
-#         sample = {'X':X,
-#                   'y_descreen':y_descreen,
-#                   'y_edge':y_edge}
-#
-#         return sample
+    for epoch in range(epochs):  # loop over the dataset multiple times
 
-# TODO just uncomment above code to see how much fucked up is PYTHON. SAME CLASSES, DIFF NAMES, DIFF RESULTS!!!!
+        running_loss = 0.0
+        for i, data in enumerate(data_loader, 0):
+            # get the inputs
+            X = data['X']
+            y_d = data['y_descreen']
+            y_e = data['y_edge']
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = net(X)
+            loss = criterion(outputs, y_d)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            if i % 2000 == 1999:  # print every 2000 mini-batches
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 2000))
+                running_loss = 0.0
+    print('Finished Training')
+
+
+def test_model_sample(net, data_loader):
+    """
+    Return array of PIL result images
+    :param net: The NN network
+    :param data_loader: Data loader containing test set
+    :return: array of PIL images edited by net
+    """
+    array = []
+    with torch.no_grad():
+        for data in data_loader:
+            X = data['X']
+            output = net(X)
+            output = ToPILImage()(output)
+            array.append(output)
+    return array
+
+
+def test_model(net, data_loader):
+    """
+    Return loss on test set
+    :param net: The trained NN network
+    :param data_loader: Data loader containing test set
+    :return: Loss value over test set in console
+    """
+    running_loss = 0.0
+    with torch.no_grad():
+        for data in data_loader:
+            X = data['X']
+            y_d = data['y_descreen']
+            outputs = net(X)
+            loss = criterion(outputs, y_d)
+            running_loss += loss
+    return running_loss
+
+
+def show_sample(max_len):
+    """
+    Shows some samples and their sizes as tensor to see how preprocessing works
+    :param max_len: number of samples to show
+    :return: None -> print some data on console
+    """
+    for i in range(len(train_dataset)):
+        sample = train_dataset[i]
+
+        X = sample['X']
+        y_d = sample['y_descreen']
+        y_e = sample['y_edge']
+        print(i)
+
+        print(type(X), X.size())
+        print(type(y_d), y_d.size())
+        print(type(y_e), y_e.size())
+
+        if i == max_len:
+            break
