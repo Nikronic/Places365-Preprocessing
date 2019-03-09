@@ -8,7 +8,7 @@ import tarfile
 import io
 import pandas as pd
 
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, ToPILImage
 import torch
 from torch.utils.data import Dataset
 
@@ -33,6 +33,8 @@ class PlacesDataset(Dataset):
         self.txt_path = txt_path
         self.img_dir = img_dir
         self.transform = transform
+        self.to_tensor = ToTensor()
+        self.to_pil = ToPILImage()
 
     def get_image_by_name(self, name):
         """
@@ -87,20 +89,20 @@ class PlacesDataset(Dataset):
 
         return sample
 
-    @staticmethod
-    def canny_edge_detector(image):
+    def canny_edge_detector(self, image):
         """
         Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
 
         :param image: PIL image
         :return: Binary numpy array
         """
+        image = self.to_pil(image)
+        image = image.convert(mode='L')
         image = np.array(image)
-        image = color.rgb2grey(image)
         edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
         size = edges.shape[::-1]
-        databytes = np.packbits(edges, axis=1)
-        edges = Image.frombytes(mode='1', size=size, data=databytes)
+        data_bytes = np.packbits(edges, axis=1)
+        edges = Image.frombytes(mode='1', size=size, data=data_bytes)
         return edges
 
 
