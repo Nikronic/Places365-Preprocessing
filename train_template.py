@@ -42,15 +42,17 @@ def init_weights(m):
     m.bias.data.fill_(0.0)
 
 
-def train_model(net, data_loader, epochs=2):
+def train_model(net, data_loader, optimizer, criterion, epochs=2):
     """
     Train model
     :param net: Parameters of defined neural network
     :param data_loader: A data loader object defined on train data set
     :param epochs: Number of epochs to train model
+    :param optimizer: Optimizer to train network
+    :param criterion: The loss function to minimize by optimizer
     :return: None
     """
-
+    net.train()
     for epoch in range(epochs):  # loop over the dataset multiple times
 
         running_loss = 0.0
@@ -85,6 +87,7 @@ def test_model_sample(net, data_loader):
     :param data_loader: Data loader containing test set
     :return: array of PIL images edited by net
     """
+    net.eval()
     array = []
     with torch.no_grad():
         for data in data_loader:
@@ -102,6 +105,7 @@ def test_model(net, data_loader):
     :param data_loader: Data loader containing test set
     :return: Loss value over test set in console
     """
+    net.eval()
     running_loss = 0.0
     with torch.no_grad():
         for data in data_loader:

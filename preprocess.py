@@ -41,15 +41,12 @@ class PlacesDataset(Dataset):
         :param name: name of targeted image
         :return: a PIL image
         """
-        image = None
-        with tarfile.open(self.img_dir) as tf:  # TODO remove for loop and make index calling (huge dataset)
-            for tarinfo in tf:
-                if tarinfo.name == name:
-                    image = tf.extractfile(tarinfo)
-                    image = image.read()
-                    image = Image.open(io.BytesIO(image))
-                    return image
-
+        with tarfile.open(self.img_dir) as tf:
+            tarinfo = tf.getmember(name)
+            image = tf.extractfile(tarinfo)
+            image = image.read()
+            image = Image.open(io.BytesIO(image))
+        return image
 
     def __len__(self):
         """
@@ -96,13 +93,14 @@ class PlacesDataset(Dataset):
         Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
 
         :param image: PIL image
-        :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
+        :return: Binary numpy array
         """
         image = np.array(image)
         image = color.rgb2grey(image)
         edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
-        edges = edges.astype(float)  # torch tensors need float
-        edges = Image.fromarray(edges)
+        size = edges.shape[::-1]
+        databytes = np.packbits(edges, axis=1)
+        edges = Image.frombytes(mode='1', size=size, data=databytes)
         return edges
 
 
