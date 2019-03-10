@@ -1,28 +1,20 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[27]:
-
-
+# %% libraries
 import PIL.Image as Image
 import numpy.matlib
 import numpy as np
 import random
 import math
 
-
-# In[28]:
-
-
-dithMat =[ 
-    # 8x8 sprial 
-    [[ 62, 58, 45, 41, 37, 49, 53, 61], 
-     [ 54, 34, 25, 21, 17, 29, 33, 57], 
+# %% functions
+dithMat =[
+    # 8x8 sprial
+    [[62, 58, 45, 41, 37, 49, 53, 61],
+     [54, 34, 25, 21, 17, 29, 33, 57],
      [ 50, 30, 13,  9,  5, 12, 24, 44],
      [ 38, 18,  6,  1,  0,  8, 20, 40],
-     [ 42, 22, 10,  2,  3,  4, 16, 36], 
-     [ 46, 26, 14,  7, 11, 15, 28, 48], 
-     [ 59, 35, 31, 19, 23, 27, 32, 52], 
+     [42, 22, 10, 2, 3, 4, 16, 36],
+     [46, 26, 14, 7, 11, 15, 28, 48],
+     [59, 35, 31, 19, 23, 27, 32, 52],
      [ 63, 55, 51, 39, 43, 47, 56, 60]],
     # 8x8 dispresed
     [[ 1, 30, 8, 28, 2, 29, 7, 27],
@@ -62,9 +54,6 @@ dithMat =[
 ]
 
 
-# In[29]:
-
-
 def get_resDmat(channel_size,dithMat):
     newSzY,newSzX = channel_size[1],channel_size[0]
     minDmat = min(min(dithMat))
@@ -82,27 +71,22 @@ def get_resDmat(channel_size,dithMat):
     return resDmat
 
 
-# In[30]:
-
-
 def generate_halftone(im):
     cmyk_im = im.convert('CMYK')
-    dithMat_sample = dithMat[random.randint(0,5)]
+    dithMat_sample = dithMat[random.randint(0, len(dithMat) - 1)]
     cmyk = cmyk_im.split()
     angles = [[ 15, 45, 0, 75],
               [ 45, 15, 0, 75],
               [ 0, 0, 0, 0]]
-    
-    angles = angles[random.randint(0,2)]
+
+    angles = angles[random.randint(0, len(angles) - 1)]
     if cmyk[0] == cmyk[1] == cmyk[2] :
         angles = angles[:1]*4
     dots = []
     for x,i in enumerate(cmyk):
         channel_Rotation = i.rotate(angles[x], expand=1)
-        #print(channel_Rotation.size)
         channel = np.asarray(channel_Rotation) > get_resDmat(channel_Rotation.size,dithMat_sample)
         channel = Image.fromarray(channel * 255).convert('L').rotate(-angles[x],expand=1)
-        #channel = channel.rotate(-angles[x],expand=1)
         w,h = channel.size
         im_x,im_y = i.size
         x1 = (w-im_x)/2
@@ -111,6 +95,10 @@ def generate_halftone(im):
         dots.append(channel)
     
     halftoned_im = Image.merge('CMYK',dots)
-    
     return halftoned_im.convert('RGB')
 
+
+# %% test
+im = Image.open('data/Places365_val_00000001.jpg')
+imh = generate_halftone(im)
+imh.show()

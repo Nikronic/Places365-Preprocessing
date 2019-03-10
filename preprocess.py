@@ -12,7 +12,7 @@ from torchvision.transforms import ToTensor, ToPILImage
 import torch
 from torch.utils.data import Dataset
 
-from Halftoning.halftone import generate_halftone
+from Halftone.halftone import generate_halftone
 
 
 class PlacesDataset(Dataset):
