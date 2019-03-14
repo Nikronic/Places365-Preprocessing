@@ -6,6 +6,7 @@ import random
 
 import tarfile
 import io
+import os
 import pandas as pd
 
 from torchvision.transforms import ToTensor, ToPILImage
@@ -35,7 +36,8 @@ class PlacesDataset(Dataset):
         self.transform = transform
         self.to_tensor = ToTensor()
         self.to_pil = ToPILImage()
-        self.tf = tarfile.open(self.img_dir)
+        self.get_image_selector = True if img_dir.__contains__('tar') else False
+        self.tf = tarfile.open(self.img_dir) if self.get_image_selector else None
 
     def get_image_from_tar(self, name):
         """
@@ -51,6 +53,17 @@ class PlacesDataset(Dataset):
         image = Image.open(io.BytesIO(image))
         return image
 
+    def get_image_from_folder(self, name):
+        """
+        gets a image by a name gathered from file list text file
+
+        :param name: name of targeted image
+        :return: a PIL image
+        """
+
+        image = Image.open(os.path.join(self.img_dir, name))
+        return image
+
     def __len__(self):
         """
         Return the length of data set using list of IDs
@@ -61,18 +74,22 @@ class PlacesDataset(Dataset):
 
     def __getitem__(self, index):
         """
-        Generate one item of data set. Here we apply our preprocessing things like halftone styles and
+        Generate one item of data set. Here we apply our preprocessing procedures like halftone styles and
         subtractive color process using CMYK color model, generating edge-maps, etc.
 
-        :param index: index of item in IDs list
+        :param index: index of item in list of names
 
         :return: a sample of data as a dict
         """
 
-        if index == (self.__len__() - 1):  # Close tarfile opened in __init__
+        if index == (self.__len__() - 1) and self.get_image_selector:  # Close tarfile opened in __init__
             self.tf.close()
 
-        y_descreen = self.get_image_from_tar(self.img_names[index])
+        if self.get_image_selector:  # note: we prefer to extract then process!
+            y_descreen = self.get_image_from_tar(self.img_names[index])
+        else:
+            y_descreen = self.get_image_from_folder(self.img_names[index])
+
 
         # generate halftone image
         X = generate_halftone(y_descreen)
@@ -122,37 +139,3 @@ class RandomNoise(object):
         if random.random() <= self.p:
             return img.clone().normal_(self.mean, self.std)
         return img
-
-
-def canny_edge_detector(image):
-    """
-    Returns a binary image with same size of source image which each pixel determines belonging to an edge or not.
-
-    :param image: PIL image
-    :return: Binary numpy array # TODO check if conversion to PIL image from binary numpy is necessary.
-    """
-    image = np.array(image)
-    image = color.rgb2grey(image)
-    edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.
-    return edges * 1
-
-
-def get_image_by_name(img_dir, name):
-    """
-    gets a image by a name gathered from file list csv file
-
-    :param name: name of targeted image
-    :return: a PIL image
-    """
-    image = None
-    with tarfile.open(img_dir) as tf:  # TODO remove for loop and make index calling (huge dataset)
-        for tarinfo in tf:
-            if tarinfo.name == name:
-                image = tf.extractfile(tarinfo)
-                image = image.read()
-                image = Image.open(io.BytesIO(image))
-                return image
-
-# z = get_image_by_name('data.tar', 'Places365_val_00000002.jpg')
-# ze = canny_edge_detector(z)
-# ze = Image.fromarray(ze)

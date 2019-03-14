@@ -21,8 +21,8 @@ custom_transforms = transforms.Compose([
 
 # https://discuss.pytorch.org/t/what-does-pil-images-of-range-0-1-mean-and-how-do-we-save-images-as-that-format/2103
 
-train_dataset = PlacesDataset(txt_path='data/filelist.txt',
-                              img_dir='data.tar',
+train_dataset = PlacesDataset(txt_path='filelist.txt',
+                              img_dir='data',
                               transform=custom_transforms)
 
 # test_dataset = PlacesDataset(txt_path='data_test/filelist.txt', img_dir='data_test.tar', transform=ToTensor())
