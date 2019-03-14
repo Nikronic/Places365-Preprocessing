@@ -34,7 +34,9 @@ train_loader = DataLoader(dataset=train_dataset,
                           num_workers=2)  # TODO change to desired one on colab
 
 criterion = nn.MSELoss(reduction='mean')  # TODO define custom loss
-optimizer = optim.Adam(params, lr=0.0001)
+
+
+# optimizer = optim.Adam(params, lr=0.0001)
 
 
 def init_weights(m):
@@ -137,3 +139,6 @@ def show_sample(max_len):
 
         if i == max_len:
             break
+
+
+show_sample(2)

@@ -35,19 +35,20 @@ class PlacesDataset(Dataset):
         self.transform = transform
         self.to_tensor = ToTensor()
         self.to_pil = ToPILImage()
+        self.tf = tarfile.open(self.img_dir)
 
-    def get_image_by_name(self, name):
+    def get_image_from_tar(self, name):
         """
         gets a image by a name gathered from file list csv file
 
         :param name: name of targeted image
         :return: a PIL image
         """
-        with tarfile.open(self.img_dir) as tf:
-            tarinfo = tf.getmember(name)
-            image = tf.extractfile(tarinfo)
-            image = image.read()
-            image = Image.open(io.BytesIO(image))
+
+        # tarinfo = self.tf.getmember(name)
+        image = self.tf.extractfile(name)
+        image = image.read()
+        image = Image.open(io.BytesIO(image))
         return image
 
     def __len__(self):
@@ -68,7 +69,10 @@ class PlacesDataset(Dataset):
         :return: a sample of data as a dict
         """
 
-        y_descreen = self.get_image_by_name(self.img_names[index])
+        if index == (self.__len__() - 1):  # Close tarfile opened in __init__
+            self.tf.close()
+
+        y_descreen = self.get_image_from_tar(self.img_names[index])
 
         # generate halftone image
         X = generate_halftone(y_descreen)
@@ -96,7 +100,8 @@ class PlacesDataset(Dataset):
         :param image: PIL image
         :return: Binary numpy array
         """
-        image = self.to_pil(image)
+        if type(image) == torch.Tensor:
+            image = self.to_pil(image)
         image = image.convert(mode='L')
         image = np.array(image)
         edges = feature.canny(image, sigma=1)  # TODO: the sigma hyper parameter value is not defined in the paper.

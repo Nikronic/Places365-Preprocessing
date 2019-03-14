@@ -99,6 +99,6 @@ def generate_halftone(im):
 
 
 # %% test
-im = Image.open('data/Places365_val_00000001.jpg')
-imh = generate_halftone(im)
-imh.show()
+# im = Image.open('data/Places365_val_00000001.jpg')
+# imh = generate_halftone(im)
+# imh.show()
