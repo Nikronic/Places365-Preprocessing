@@ -17,7 +17,7 @@ from Halftone.halftone import generate_halftone
 
 
 class PlacesDataset(Dataset):
-    def __init__(self, txt_path='data/filelist.txt', img_dir='data.tar', transform=None):
+    def __init__(self, txt_path='filelist.txt', img_dir='data', transform=None):
         """
                 Initialize data set as a list of IDs corresponding to each item of data set
 
@@ -128,14 +128,15 @@ class PlacesDataset(Dataset):
         return edges
 
 
-# https://discuss.pytorch.org/t/adding-gaussion-noise-in-cifar10-dataset/961/2
 class RandomNoise(object):
-    def __init__(self, p, mean=0, std=1):
+    def __init__(self, p, mean=0, std=0.1):
         self.p = p
         self.mean = mean
         self.std = std
 
     def __call__(self, img):
         if random.random() <= self.p:
-            return img.clone().normal_(self.mean, self.std)
+            noise = torch.empty(*img.size(), dtype=torch.float, requires_grad=False)
+            return img+noise.normal_(self.mean, self.std)
         return img
+
